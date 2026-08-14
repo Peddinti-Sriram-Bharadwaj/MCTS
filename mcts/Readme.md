@@ -2,6 +2,12 @@
 
 A refactored Monte Carlo Tree Search implementation using the **Strategy pattern** (dependency injection). Swap games by passing a `--game` flag at runtime.
 
+## Requirements & Reproducibility
+
+- **Python Version**: Python 3.7+
+- **Dependencies**: No external packages required (uses pure standard library: `abc`, `dataclasses`, `argparse`, `math`, `random`, `copy`, `typing`).
+- **Reproducibility**: MCTS rollout simulations rely on Python's standard `random` module. For deterministic evaluations across runs, set a fixed random seed in python (e.g. `import random; random.seed(42)`).
+
 ## Architecture
 
 ### Abstract Interface
