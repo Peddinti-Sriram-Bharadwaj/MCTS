@@ -1,5 +1,5 @@
 import random
-from gamestate import GameState
+from game_state_abstract import GameState
 
 def rollout(state: GameState) -> float:
     """Play random legal moves from 'state' until the game ends, 

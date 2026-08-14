@@ -1,5 +1,5 @@
 from typing import Optional
-from gamestate import GameState
+from game_state_abstract import GameState
 
 class Node:
     def __init__(self, state: GameState, parent: Optional["Node"] = None, action_taken: Optional[int] = None):
