@@ -28,7 +28,7 @@ GRID_MAP = {
 
 
 def print_board(state: TicTacToe):
-    symbols = {1: "X", -1: "O", 0: "."}
+    symbols = {"X": "X", "O": "O", None: "."}
     b = [symbols[x] for x in state.board]
     print("\n  Current Board:          Action Index Reference:")
     print(f"    {b[0]} | {b[1]} | {b[2]}                  0 | 1 | 2")

@@ -1,117 +1,127 @@
-# MCTS: Pluggable Game Environments
+# AlphaZero Neural MCTS in JAX / Flax NNX
 
-A refactored Monte Carlo Tree Search implementation using the **Strategy pattern** (dependency injection). Swap games by passing a `--game` flag at runtime.
+A modular, clean implementation of AlphaZero combining **Monte Carlo Tree Search (MCTS)** with a **dual-head policy & value neural network** using **JAX and Flax NNX**.
 
-## Requirements & Reproducibility
+---
 
-- **Python Version**: Python 3.7+
-- **Dependencies**: No external packages required (uses pure standard library: `abc`, `dataclasses`, `argparse`, `math`, `random`, `copy`, `typing`).
-- **Reproducibility**: MCTS rollout simulations rely on Python's standard `random` module. For deterministic evaluations across runs, set a fixed random seed in python (e.g. `import random; random.seed(42)`).
+## 🏛️ Project Architecture
 
-## Architecture
+```
+neural/
+├── games/
+│   ├── base.py          # Abstract GameState interface (to_array, legal_actions, reward)
+│   └── tictactoe.py     # Canonical TicTacToe implementation & tensor board encoding
+├── mcts/
+│   ├── node.py          # MCTS Search tree node
+│   ├── selection.py     # PUCT search selection logic (with zero-visit prior preservation)
+│   ├── expansion.py     # Neural network expansion & prior probability initialization
+│   ├── backpropagation.py # Value propagation up search tree
+│   └── search.py        # MCTS search algorithm (Dirichlet noise & temperature sampling)
+├── network/
+│   ├── model.py         # Flax NNX AlphaZeroNet (shared trunk, policy & value heads)
+│   └── inference.py     # @nnx.jit-accelerated network forward pass wrapper
+├── training/
+│   ├── self_play.py     # Self-play trajectory collector
+│   ├── replay_buffer.py # Fixed-capacity transition ring buffer
+│   ├── train.py         # Optax Adam optimizer & AlphaZero training step
+│   └── checkpoint.py    # Orbax checkpoint manager (indexed save/load)
+├── run_training.py      # Entry point for self-play training
+├── evaluate.py          # Head-to-head evaluation suite (vs random baseline)
+├── play.py              # Interactive Human vs AI terminal interface
+├── smoke_test.py        # Verification test suite
+└── requirements.txt     # Dependency specifications
+```
 
-### Abstract Interface
-- **`game_state_abstract.py`** — `GameState` (ABC): defines the contract any game must implement.
-  - Properties/methods: `current_player`, `legal_actions()`, `apply_action()`, `is_terminal()`, `reward()`, `render()`
-  - No game-specific logic; pure interface.
+---
 
-### Concrete Games
-- **`tictactoe.py`** — Tic-tac-toe (9-cell board, 3×3 grid)
-- **`connect4.py`** — Connect-4 (7×6 board, drop-to-gravity mechanics)
+## ⚡ Key Architectural Features
 
-Both inherit from `GameState` and implement the full interface. Zero changes needed to MCTS itself when adding a new game.
+1. **JAX + Flax NNX**: Utilizes Flax NNX object-oriented functional module paradigm (`nnx.Module`, `@nnx.jit`, `nnx.vmap`, `nnx.Optimizer`).
+2. **Shared Trunk Dual-Head Network**: A unified backbone model branching into:
+   - **Policy Head**: Outputs move logit distributions over `num_actions`.
+   - **Value Head**: Predicts expected position evaluation in `[-1, 1]` with `tanh` activation.
+3. **AlphaZero MCTS**:
+   - **PUCT Selection**: Combines state action value $Q$ with policy prior bonus $U(s, a)$.
+   - **Dirichlet Exploration Noise**: Injected into root node priors during training (`dirichlet_alpha=1.11`, `epsilon=0.25`).
+   - **Temperature Sampling**: Move selection during training samples from visit distributions $p_i \propto N(s, a)^{1/\tau}$.
+4. **Orbax Checkpointing**: Save and restore model weights with versioned indices (`checkpoints/ckpt_00100`).
 
-### MCTS Core (Game-Agnostic)
-- **`node.py`** — Tree node structure (visit count, value, children dict)
-- **`selection.py`** — UCB1 tree traversal with negated child values (perspective flip fix)
-- **`expansion.py`** — Lazy one-child-at-a-time expansion
-- **`simulation.py`** — Random rollout with perspective tracking
-- **`backprop.py`** — Path update with sign alternation
-- **`search.py`** — Main search loop, coordinates all pieces
+---
 
-These six files are **completely game-agnostic**. They depend only on the `GameState` abstract interface.
+## 🚀 Quick Start & Usage
 
-### Driver
-- **`play.py`** — Self-play driver with `--game` flag selection
-  - Accepts `--game tictactoe` or `--game connect4`
-  - Prints board state after each move
-  - Reports winner or draw at the end
+### 1. Installation
 
-## Usage
+Activate your environment and install dependencies:
 
 ```bash
-# Play tic-tac-toe (500 iterations per move)
-python3 play.py --game tictactoe
-
-# Play Connect-4 (1000 iterations per move)
-python3 play.py --game connect4
+pip install -r requirements.txt
 ```
 
-## How to Add a New Game
+### 2. Verification (Smoke Test)
 
-1. Create a file `my_game.py` with a class inheriting from `GameState`:
-   ```python
-   from game_state_abstract import GameState
-   
-   class MyGame(GameState):
-       @property
-       def current_player(self) -> str:
-           # ...
-       
-       def legal_actions(self) -> list:
-           # ...
-       
-       # ... implement all abstract methods
-   ```
+Run the end-to-end component verification suite:
 
-2. Add it to `play.py`'s `GAMES` dict:
-   ```python
-   GAMES = {
-       "tictactoe": TicTacToe,
-       "connect4": Connect4,
-       "mygame": MyGame,  # <- add this
-   }
-   ```
-
-3. Run: `python3 play.py --game mygame`
-
-**No changes to MCTS itself are needed.** The search algorithm works with any game that implements the `GameState` interface.
-
-## Key Design Patterns
-
-### Strategy Pattern (Dependency Injection)
-- Games are swappable at runtime via a flag
-- MCTS depends only on the abstract interface, not concrete games
-- New games require no MCTS modifications
-
-### Perspective Flip Bug (Lesson from Integration Testing)
-- `backprop` stores values from the child node's current_player perspective
-- `selection` must negate the child's stored value when scoring, because the parent is making the choice (opponent's turn relative to the child)
-- This bug was only caught by full self-play testing, not unit-level checks
-- See `selection.py` line in `ucb_score()`: `exploitation = -(child.total_value / child.visit_count)`
-
-## Expected Outcomes
-
-- **Tic-tac-toe self-play**: Always draws (perfect game, both sides play perfectly)
-- **Connect-4 self-play**: Varies; with 1000 iterations per move, roughly 50/50 win rates or frequent draws depending on first-move advantage and board complexity
-
-## File Dependency Graph
-
-```
-play.py
-  ├── search.py
-  │   ├── selection.py
-  │   │   └── node.py
-  │   ├── expansion.py
-  │   │   └── node.py
-  │   ├── simulation.py
-  │   │   └── game_state_abstract.py
-  │   └── backprop.py
-  │       └── node.py
-  ├── tictactoe.py
-  │   └── game_state_abstract.py
-  └── connect4.py
-      └── game_state_abstract.py
+```bash
+python smoke_test.py
 ```
 
-All paths flow through the abstract `GameState` interface. No circular dependencies.
+### 3. Training
+
+Launch the self-play training loop:
+
+```bash
+python run_training.py
+```
+Checkpoints will automatically be saved to `checkpoints/ckpt_XXXXX`.
+
+### 4. Evaluation
+
+Evaluate a trained checkpoint against a random baseline:
+
+```bash
+# List available checkpoints
+python evaluate.py --list
+
+# Evaluate pure policy network performance (0 simulations)
+python evaluate.py --sims 0 --games 40
+
+# Evaluate MCTS-assisted performance
+python evaluate.py --checkpoint 190 --sims 50 --games 20
+```
+
+### 5. Interactive Play vs AI
+
+Play TicTacToe in your terminal against the trained model:
+
+```bash
+python play.py                           # plays against latest checkpoint
+python play.py --checkpoint 190 --sims 50 # specify checkpoint index and MCTS depth
+python play.py --human-first              # human plays first as 'X'
+```
+
+---
+
+## 🎮 Game Interface Abstraction (`games/base.py`)
+
+To implement a new game (e.g. Connect-4 or Chess), inherit from `GameState`:
+
+```python
+class GameState(ABC):
+    @property
+    @abstractmethod
+    def current_player(self) -> str: ...
+    @abstractmethod
+    def legal_actions(self) -> list[int]: ...
+    @abstractmethod
+    def apply_action(self, action: int) -> "GameState": ...
+    @abstractmethod
+    def is_terminal(self) -> bool: ...
+    @abstractmethod
+    def reward(self) -> float: ...
+    @property
+    @abstractmethod
+    def num_actions(self) -> int: ...
+    @abstractmethod
+    def to_array(self) -> jnp.ndarray: ...
+```
