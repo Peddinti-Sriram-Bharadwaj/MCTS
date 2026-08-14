@@ -32,6 +32,7 @@ def save_checkpoint(model: AlphaZeroNet, checkpoint_dir: str, index: int) -> Non
     checkpointer = ocp.StandardCheckpointer()
     state = nnx.state(model)
     checkpointer.save(str(path), state, force=True)
+    checkpointer.wait_until_finished()
     print(f"  [ckpt] saved  → {path}")
 
 
