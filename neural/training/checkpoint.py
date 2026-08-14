@@ -22,7 +22,7 @@ _PATTERN = re.compile(rf"^{re.escape(CKPT_PREFIX)}(\d+)$")
 
 
 def _ckpt_path(checkpoint_dir: str, index: int) -> Path:
-    return Path(checkpoint_dir) / f"{CKPT_PREFIX}{index:05d}"
+    return (Path(checkpoint_dir) / f"{CKPT_PREFIX}{index:05d}").resolve()
 
 
 def save_checkpoint(model: AlphaZeroNet, checkpoint_dir: str, index: int) -> None:
@@ -72,7 +72,7 @@ def load_checkpoint(
 
 def latest_checkpoint_index(checkpoint_dir: str) -> int | None:
     """Return the highest checkpoint index in checkpoint_dir, or None if empty."""
-    ckpt_dir = Path(checkpoint_dir)
+    ckpt_dir = Path(checkpoint_dir).resolve()
     if not ckpt_dir.exists():
         return None
 
@@ -86,7 +86,7 @@ def latest_checkpoint_index(checkpoint_dir: str) -> int | None:
 
 def list_checkpoints(checkpoint_dir: str) -> list[int]:
     """Return a sorted list of all available checkpoint indices."""
-    ckpt_dir = Path(checkpoint_dir)
+    ckpt_dir = Path(checkpoint_dir).resolve()
     if not ckpt_dir.exists():
         return []
 

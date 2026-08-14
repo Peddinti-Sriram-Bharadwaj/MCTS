@@ -16,4 +16,5 @@ jax>=0.4.25
 jaxlib>=0.4.25
 flax>=0.8.0
 optax>=0.2.2
+orbax-checkpoint>=0.6.0
 numpy>=1.24
