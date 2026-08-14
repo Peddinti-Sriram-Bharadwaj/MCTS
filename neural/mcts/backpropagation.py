@@ -1,4 +1,4 @@
-from node import Node
+from mcts.node import Node
 
 def backpropagate(node: Node, reward: float) -> None:
     """Walk form 'node' up to the root, updating visit_count and total_value

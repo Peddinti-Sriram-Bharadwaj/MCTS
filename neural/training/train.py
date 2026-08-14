@@ -14,6 +14,7 @@ from network.model import AlphaZeroNet
 from network.inference import make_network_fn
 from training.replay_buffer import ReplayBuffer
 from training.self_play import self_play_game
+from training.checkpoint import save_checkpoint
 
 
 def loss_fn(
@@ -35,8 +36,9 @@ def loss_fn(
     Returns:
         Scalar loss.
     """
-    # vmap applies model to each example in the batch independently.
-    batched_forward = jax.vmap(model)
+    # nnx.vmap applies model to each example in the batch independently,
+    # correctly handling NNX module state.
+    batched_forward = nnx.vmap(model, in_axes=0, out_axes=0)
     policy_logits, values = batched_forward(states)  # (batch, num_actions), (batch, 1)
 
     values = values.squeeze(-1)  # (batch,)
@@ -65,7 +67,7 @@ def train_step(
     z_targets  = jnp.array(z_targets)
 
     loss, grads = nnx.value_and_grad(loss_fn)(model, states, pi_targets, z_targets)
-    optimizer.update(grads)
+    optimizer.update(model, grads)
 
     return float(loss)
 
@@ -79,6 +81,8 @@ def train_loop(
     batch_size: int = 64,
     buffer_capacity: int = 5000,
     learning_rate: float = 1e-3,
+    checkpoint_dir: str = "checkpoints",
+    checkpoint_every: int = 10,
 ):
     """AlphaZero self-play training loop.
 
@@ -95,11 +99,13 @@ def train_loop(
         batch_size:          Minibatch size for training.
         buffer_capacity:     Max examples in replay buffer.
         learning_rate:       Adam learning rate.
+        checkpoint_dir:      Directory to save checkpoints in.
+        checkpoint_every:    Save a checkpoint every N training iterations.
     """
     sample_state = initial_state_fn()
     num_actions = sample_state.num_actions
 
-    optimizer = nnx.Optimizer(model, optax.adam(learning_rate))
+    optimizer = nnx.Optimizer(model, optax.adam(learning_rate), wrt=nnx.Param)
     buffer = ReplayBuffer(capacity=buffer_capacity, num_actions=num_actions)
 
     for iteration in range(num_iterations):
@@ -118,3 +124,7 @@ def train_loop(
         loss = train_step(model, optimizer, states, pi_vecs, zs)
 
         print(f"[iter {iteration:3d}] loss={loss:.4f}  buffer={len(buffer)}")
+
+        # --- Checkpoint phase ---
+        if iteration % checkpoint_every == 0:
+            save_checkpoint(model, checkpoint_dir, iteration)
