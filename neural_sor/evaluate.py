@@ -35,7 +35,7 @@ def play_one_game(fn_x, fn_o, sims_x: int, sims_o: int) -> str:
     fns  = {"X": fn_x,   "O": fn_o}
     sims = {"X": sims_x, "O": sims_o}
     while not state.is_terminal():
-        action, _ = mcts_search(state, fns[state.current_player], sims[state.current_player])
+        action, _, _ = mcts_search(state, fns[state.current_player], sims[state.current_player])
         state = state.apply_action(action)
     winner = state._winner()
     return winner if winner is not None else "draw"
@@ -81,6 +81,10 @@ def main():
     parser.add_argument(
         "--checkpoint-dir", type=str, default=CHECKPOINT_DIR,
         help=f"Checkpoint directory (default: {CHECKPOINT_DIR})"
+    )
+    parser.add_argument(
+        "--omega", type=float, default=1.25,
+        help="SOR relaxation parameter of the checkpoint"
     )
     parser.add_argument(
         "--games", type=int, default=20,
@@ -129,14 +133,14 @@ def main():
     # -- Load trained model
     trained_model = AlphaZeroNet(
         input_size=INPUT_SIZE, num_actions=NUM_ACTIONS,
-        hidden_size=HIDDEN_SIZE, rngs=nnx.Rngs(0)
+        hidden_size=HIDDEN_SIZE, omega=args.omega, rngs=nnx.Rngs(0)
     )
     load_checkpoint(trained_model, args.checkpoint_dir, index=ckpt_index)
 
     # -- Build random baseline (different seed → different weights)
     random_model = AlphaZeroNet(
         input_size=INPUT_SIZE, num_actions=NUM_ACTIONS,
-        hidden_size=HIDDEN_SIZE, rngs=nnx.Rngs(99)
+        hidden_size=HIDDEN_SIZE, omega=args.omega, rngs=nnx.Rngs(99)
     )
 
     # -- Resolve per-player sim counts

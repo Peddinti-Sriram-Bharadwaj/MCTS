@@ -1,11 +1,11 @@
-# AlphaZero Neural MCTS in JAX and Flax
+# AlphaZero with Successive Over-Relaxation (SOR) in JAX and Flax
 
-This repository provides a reference implementation of the AlphaZero algorithm, integrating Monte Carlo Tree Search (MCTS) with a dual-head neural network using JAX and Flax NNX.
+This repository provides an extended implementation of the AlphaZero algorithm, incorporating Successive Over-Relaxation (SOR) into the value head's loss function to accelerate convergence and stabilize Q-value targets. The implementation utilizes Monte Carlo Tree Search (MCTS) with a dual-head neural network via JAX and Flax NNX.
 
 ## Project Architecture
 
 ```text
-neural/
+neural-SOR/
 ├── games/
 │   ├── base.py          # Abstract GameState interface 
 │   ├── connect4.py      # Connect-4 implementation
@@ -17,14 +17,15 @@ neural/
 │   ├── backpropagation.py # Value propagation up the search tree
 │   └── search.py        # MCTS search algorithm implementation
 ├── network/
-│   ├── model.py         # Flax NNX AlphaZeroNet (shared trunk, policy and value heads)
+│   ├── model.py         # Flax NNX AlphaZeroNet with split Value Heads for SOR
 │   └── inference.py     # JIT-compiled network forward pass wrapper
 ├── training/
 │   ├── self_play.py     # Self-play trajectory generation
 │   ├── replay_buffer.py # Transition ring buffer
-│   ├── train.py         # Optax Adam optimizer and training step implementation
+│   ├── train.py         # Optax Adam optimizer and SOR-modified loss function
 │   └── checkpoint.py    # Orbax checkpoint manager
-├── run_training.py      # Entry point for self-play training
+├── run_training.py      # Entry point for single-agent self-play training
+├── tournament.py        # Orchestrator for hyperparameter sweeping and evaluation
 ├── evaluate.py          # Head-to-head evaluation suite
 ├── play.py              # Interactive terminal interface
 ├── smoke_test.py        # Component verification test suite
@@ -33,14 +34,18 @@ neural/
 
 ## Technical Specifications
 
-1. **JAX and Flax NNX Integration**: The architecture utilizes the Flax NNX object-oriented functional module paradigm (`nnx.Module`, `@nnx.jit`, `nnx.vmap`, `nnx.Optimizer`).
+### Successive Over-Relaxation (SOR) Integration
+This repository diverges from standard AlphaZero by applying Successive Over-Relaxation (SOR) strictly to the Value Head. This is controlled by the relaxation parameter $\omega$. 
+- When $\omega = 1.0$, the network operates as a standard AlphaZero implementation.
+- When $\omega > 1.0$, the network applies Over-Relaxation to extrapolate gradient updates.
+- The Value Head computes `V(s) = fc2(fc1(s))`. The SOR transformation is applied between `fc1` and `fc2` to stabilize the intermediate representations.
+
+### Base Architecture
+1. **JAX and Flax NNX Integration**: The architecture utilizes the Flax NNX object-oriented functional module paradigm.
 2. **Dual-Head Architecture**: A unified backbone model branch computes two distinct outputs:
    - **Policy Head**: Outputs move logit distributions over the action space.
-   - **Value Head**: Predicts the expected state evaluation in the continuous interval `[-1, 1]` using a `tanh` activation function.
-3. **MCTS Configuration**:
-   - **PUCT Selection**: Combines the state-action value $Q$ with a policy prior bonus $U(s, a)$.
-   - **Dirichlet Noise**: Injected into root node priors during training to ensure exploration (`dirichlet_alpha=1.11`, `epsilon=0.25`).
-   - **Temperature Sampling**: Move selection during training samples from visit distributions $p_i \propto N(s, a)^{1/\tau}$.
+   - **Value Head (SOR)**: Predicts the expected state evaluation in the continuous interval `[-1, 1]` using a `tanh` activation function, modified by $\omega$.
+3. **MCTS Configuration**: Utilizes PUCT Selection, Dirichlet Noise exploration, and Temperature Sampling.
 4. **Checkpointing**: Orbax is utilized for saving and restoring model parameters systematically.
 
 ## Usage Guide
@@ -61,28 +66,28 @@ Execute the component verification suite to ensure hardware and software integri
 python smoke_test.py
 ```
 
-### 3. Training
+### 3. Hyperparameter Sweeping (Tournament Mode)
 
-Initiate the self-play training loop:
+The primary entry point for this repository is the `tournament.py` orchestrator, which sequentially trains and evaluates multiple agents across varying $\omega$ values.
 
+**Phase 1: Sequential Training**
 ```bash
-python run_training.py --device cpu
+python tournament.py --train --device cpu
 ```
-Checkpoints will be written to `checkpoints/ckpt_XXXXX`. The `--device` flag accepts `cpu` or `gpu`.
+This script sequentially trains independent agents for $\omega \in [1.0, 1.1, 1.25, 1.5, 1.7, 1.8]$ and saves them to isolated checkpoint directories.
 
-### 4. Evaluation
+**Phase 2: Round-Robin Evaluation**
+```bash
+python tournament.py --eval --games 20 --sims 50
+```
+This script pits every fully trained agent against every other agent in an alternating-first-mover format to empirically determine the optimal relaxation parameter. It produces a comprehensive head-to-head win matrix.
 
-Evaluate a trained checkpoint against a baseline or another configuration:
+### 4. Single-Agent Training
+
+To train a single agent manually with a specific $\omega$ parameter:
 
 ```bash
-# List available checkpoints
-python evaluate.py --list
-
-# Evaluate pure policy network performance (0 simulations)
-python evaluate.py --sims 0 --games 40
-
-# Evaluate MCTS-assisted performance
-python evaluate.py --checkpoint 190 --sims 50 --games 20
+python run_training.py --omega 1.5 --checkpoint-dir checkpoints_omega_1.5 --device cpu
 ```
 
 ### 5. Interactive Execution

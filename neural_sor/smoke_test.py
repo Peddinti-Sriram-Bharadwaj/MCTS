@@ -65,7 +65,7 @@ def test_mcts_search():
     model = AlphaZeroNet(input_size=INPUT_SIZE, num_actions=NUM_ACTIONS, hidden_size=HIDDEN_SIZE, rngs=nnx.Rngs(0))
     network_fn = make_network_fn(model)
     state = Connect4.initial()
-    action, pi = mcts_search(state, network_fn, num_simulations=10)
+    action, pi, max_q = mcts_search(state, network_fn, num_simulations=10)
     assert action in range(NUM_ACTIONS)
     assert sum(pi.values()) > 0
 

@@ -5,7 +5,8 @@ __pycache__/
 
 # Checkpoint directories & saved weights
 checkpoints/
-neural/checkpoints/
+checkpoints_omega_*/
+*/checkpoints/
 *.orbax/
 
 # Virtual environments
