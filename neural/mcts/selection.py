@@ -11,7 +11,7 @@ def puct_score(parent: Node, child: Node) -> float:
     U: Exploration bonus weighted by the policy network's prior probability.
     """
     Q = -(child.total_value / child.visit_count) if child.visit_count > 0 else 0.0
-    U = C_PUCT * child.prior_prob * math.sqrt(parent.visit_count) / (1 + child.visit_count)
+    U = C_PUCT * child.prior_prob * math.sqrt(max(1, parent.visit_count)) / (1 + child.visit_count)
     return Q + U
 
 

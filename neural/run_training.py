@@ -17,9 +17,9 @@ INPUT_SIZE          = 18    # 2 planes * 3*3 board, flattened
 NUM_ACTIONS         = 9     # TicTacToe action space
 HIDDEN_SIZE         = 64    # shared trunk width
 
-NUM_ITERATIONS      = 100   # self-play + train cycles
-GAMES_PER_ITERATION = 5     # self-play games per cycle
-NUM_SIMULATIONS     = 50    # MCTS simulations per move
+NUM_ITERATIONS      = 200   # self-play + train cycles
+GAMES_PER_ITERATION = 10    # self-play games per cycle
+NUM_SIMULATIONS     = 10    # MCTS simulations per move (low = network priors matter)
 BATCH_SIZE          = 64    # minibatch size
 BUFFER_CAPACITY     = 10_000
 LEARNING_RATE       = 1e-3

@@ -1,11 +1,27 @@
 """
 Self-play: run one full game using MCTS, collect (state_array, pi, z) triples.
+
+Training uses:
+  - Dirichlet noise at root  → forces exploration
+  - Temperature=1 sampling   → generates diverse, non-trivial positions
+  - Fewer MCTS simulations   → network priors matter, imperfect play creates wins/losses
 """
 
 from typing import Callable
 import jax.numpy as jnp
 from games.base import GameState
 from mcts.search import mcts_search
+
+
+# AlphaZero recommendation: alpha = 10 / num_actions
+# TicTacToe has 9 actions → alpha ≈ 1.11
+DIRICHLET_ALPHA   = 1.11
+DIRICHLET_EPSILON = 0.25
+
+# Use temperature=1 for the whole game during early training.
+# In full AlphaZero this drops to 0 after move 30, but TicTacToe
+# games are short (≤9 moves) so temperature=1 throughout is fine.
+TEMPERATURE = 1.0
 
 
 def self_play_game(
@@ -25,7 +41,14 @@ def self_play_game(
     trajectory = []  # list of (state_array, pi, player_at_move)
 
     while not state.is_terminal():
-        best_action, pi = mcts_search(state, network_fn, num_simulations)
+        best_action, pi = mcts_search(
+            state,
+            network_fn,
+            num_simulations,
+            temperature=TEMPERATURE,
+            dirichlet_alpha=DIRICHLET_ALPHA,
+            dirichlet_epsilon=DIRICHLET_EPSILON,
+        )
 
         # Record before applying the move
         trajectory.append((
