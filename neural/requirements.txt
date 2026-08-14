@@ -1,0 +1,5 @@
+# MCTS Environment Requirements
+# ------------------------------
+# Python Version: Python 3.7+
+# Dependencies: Pure Python standard library (abc, dataclasses, argparse, math, random, copy, typing)
+# No external third-party PyPI dependencies required.
