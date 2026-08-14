@@ -1,5 +1,19 @@
-# MCTS Environment Requirements
-# ------------------------------
-# Python Version: Python 3.7+
-# Dependencies: Pure Python standard library (abc, dataclasses, argparse, math, random, copy, typing)
-# No external third-party PyPI dependencies required.
+# Neural MCTS — AlphaZero-style with JAX
+# ----------------------------------------
+# Python 3.10+
+#
+# Install:
+#   pip install -r requirements.txt
+#
+# JAX CPU (default, works everywhere):
+#   pip install -r requirements.txt
+#
+# JAX GPU (CUDA 12):
+#   pip install -r requirements.txt
+#   pip install -U "jax[cuda12]"
+
+jax>=0.4.25
+jaxlib>=0.4.25
+flax>=0.8.0
+optax>=0.2.2
+numpy>=1.24
