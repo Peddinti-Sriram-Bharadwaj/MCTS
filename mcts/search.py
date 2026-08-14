@@ -2,7 +2,7 @@ from node import Node
 from selection import select
 from expansion import expand
 from simulation import rollout
-from backprop import backpropagate
+from backpropagation import backpropagate
 
 def mcts_search(root_state, num_iterations: int) -> int:
     root = Node(state=root_state)

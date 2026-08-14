@@ -8,4 +8,4 @@ def backpropagate(node: Node, reward: float) -> None:
         node.visit_count +=1
         node.total_value += reward
         reward = -reward
-        node = parent
+        node = node.parent
